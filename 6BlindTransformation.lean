@@ -24,7 +24,8 @@ and the entry of a point is the 0th coordinate
 
 def is_LatinHypercube {n d : Nat} (A : Set (Fin d → Fin n)) : Prop := 
   if H0 : n > 0 ∧ d > 1 then 
-    ∀ f : Fin d → Fin n, ∀ x : Fin d, ∃! a : Fin d → Fin n, a ∈ A ∧ ∀ y : Fin d, x ≠ y → a y = f y 
+    ∀ f : Fin d → Fin n, ∀ x : Fin d, ∃! a : Fin d → Fin n, a ∈ A ∧
+      ∀ y : Fin d, x ≠ y → a y = f y 
   else 
     False
 
@@ -94,7 +95,7 @@ def isotopism {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) (A : Set (Fin d �
 
 def isotopism.inverse_map {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) (A : Set (Fin d → Fin n)) : 
   Set (Fin d → Fin n) :=
-  {b : Fin d → Fin n | ∃ a ∈ A, b = (λ x => (σₙd x).symm (a x))}
+  isotopism (λ x => (σₙd x).symm) A
 
 def isomorphism {n d : Nat} (σₙ : Fin n ≃ Fin n) (A : Set (Fin d → Fin n)) : 
   Set (Fin d → Fin n) :=
@@ -106,7 +107,7 @@ def conjugate {n d : Nat} (σ_d : Fin d ≃ Fin d) (A : Set (Fin d → Fin n)) :
 
 def conjugate.inverse_map {n d : Nat} (σ_d : Fin d ≃ Fin d) (A : Set (Fin d → Fin n)) : 
   Set (Fin d → Fin n) :=
-  {b : Fin d → Fin n | ∃ a ∈ A, b = (a ∘ σ_d.symm)}
+  conjugate σ_d.symm A
 
 def paratopism {n d : Nat} (σ_d : Fin d ≃ Fin d) (σₙd : Fin d → Fin n ≃ Fin n) 
     (A : Set (Fin d → Fin n)) : 
@@ -270,7 +271,8 @@ theorem conjugate.Equiv {n d : Nat} (σ_d : Fin d ≃ Fin d) :
 -- Paratopism is an equivalence relation
 lemma paratopism.left_inverse {n d : Nat} (σ_d : Fin d ≃ Fin d) (σₙd : Fin d → Fin n ≃ Fin n) :
   Function.LeftInverse (paratopism.inverse.map σ_d σₙd) (paratopism σ_d σₙd) := by
-  unfold paratopism inverse.map Function.LeftInverse isotopism conjugate isotopism.inverse_map conjugate.inverse_map
+  unfold paratopism inverse.map Function.LeftInverse isotopism 
+  unfold conjugate isotopism.inverse_map conjugate.inverse_map
   intro A
   ext f
   constructor
@@ -331,7 +333,7 @@ theorem paratopism.Equiv {n d : Nat} (σ_d : Fin d ≃ Fin d) (σₙd : Fin d �
   done
 
 
--- Hence it make sense to talk about the equivalence classes of Latin hypercubes under these relations
+-- Hence it make sense to talk about the equivalence classes of Latin hypercubes
 def isomorphism_class {n d : Nat} (A : Set (Fin d → Fin n)) : Set (Set (Fin d → Fin n)) :=
   {B : Set (Fin d → Fin n) | ∃ σₙ : Fin n ≃ Fin n, B = isomorphism σₙ A}
 
@@ -357,7 +359,8 @@ def main_class {n d : Nat} (A : Set (Fin d → Fin n)) : Set (Set (Fin d → Fin
 -- f'  -Find the point in A →  a'
 
 
-lemma isotopism.main_imp {n d : Nat} {H : 𝓗 n d} (σₙd : Fin d → Fin n ≃ Fin n) (A : Set (Fin d → Fin n)) :
+lemma isotopism.main_imp {n d : Nat} {H : 𝓗 n d} (σₙd : Fin d → Fin n ≃ Fin n)
+  (A : Set (Fin d → Fin n)) :
   A ∈ H.set → isotopism σₙd A ∈ H.set := by
   rw [H.prop, H.prop]
   unfold is_LatinHypercube
@@ -405,7 +408,8 @@ lemma isotopism.main_imp {n d : Nat} {H : 𝓗 n d} (σₙd : Fin d → Fin n �
   done
 
 
-theorem isotopism.main {n d : Nat} {H : 𝓗 n d} (σₙd : Fin d → Fin n ≃ Fin n) (A : Set (Fin d → Fin n)) :
+theorem isotopism.main {n d : Nat} {H : 𝓗 n d} (σₙd : Fin d → Fin n ≃ Fin n) 
+  (A : Set (Fin d → Fin n)) :
   A ∈ H.set ↔ isotopism σₙd A ∈ H.set := by
   constructor
   · -- 1.
@@ -435,8 +439,10 @@ theorem isotopism.main {n d : Nat} {H : 𝓗 n d} (σₙd : Fin d → Fin n ≃ 
     done
 
 
-theorem single_isotopism.main {n d : Nat} {H : 𝓗 n d} (σₙ : Fin n ≃ Fin n) (y : Fin d) (A : Set (Fin d → Fin n)) :
-  A ∈ H.set ↔ single_isotopism σₙ y A ∈ H.set := by rw [single_isotopism.isotopism σₙ y A, ← isotopism.main]
+theorem single_isotopism.main {n d : Nat} {H : 𝓗 n d} (σₙ : Fin n ≃ Fin n) (y : Fin d) 
+  (A : Set (Fin d → Fin n)) :
+  A ∈ H.set ↔ single_isotopism σₙ y A ∈ H.set := by 
+  rw [single_isotopism.isotopism σₙ y A, ← isotopism.main]
 
 
 theorem isomorphism.main {n d : Nat} {H : 𝓗 n d} (σₙ : Fin n ≃ Fin n) (A : Set (Fin d → Fin n)) :
@@ -524,9 +530,8 @@ theorem conjugate.main {n d : Nat} {H : 𝓗 n d} (σ_d : Fin d ≃ Fin d) (A : 
     done
 
 
---------------------------------------------------------------------------------
-
-lemma paratopism.main_imp {n d : Nat} {H : 𝓗 n d} (σ_d : Fin d ≃ Fin d) (σₙd : Fin d → Fin n ≃ Fin n) (A : Set (Fin d → Fin n)) :
+lemma paratopism.main_imp {n d : Nat} {H : 𝓗 n d} (σ_d : Fin d ≃ Fin d) 
+  (σₙd : Fin d → Fin n ≃ Fin n) (A : Set (Fin d → Fin n)) :
   A ∈ H.set → paratopism σ_d σₙd A ∈ H.set := by
   unfold paratopism
   intro HA
@@ -536,7 +541,8 @@ lemma paratopism.main_imp {n d : Nat} {H : 𝓗 n d} (σ_d : Fin d ≃ Fin d) (�
   done
 
 
-theorem paratopism.main {n d : Nat} {H : 𝓗 n d} (σ_d : Fin d ≃ Fin d) (σₙd : Fin d → Fin n ≃ Fin n) (A : Set (Fin d → Fin n)) :
+theorem paratopism.main {n d : Nat} {H : 𝓗 n d} (σ_d : Fin d ≃ Fin d) 
+  (σₙd : Fin d → Fin n ≃ Fin n) (A : Set (Fin d → Fin n)) :
   A ∈ H.set ↔ paratopism σ_d σₙd A ∈ H.set := by
   constructor
   · -- 1.
@@ -545,6 +551,11 @@ theorem paratopism.main {n d : Nat} {H : 𝓗 n d} (σ_d : Fin d ≃ Fin d) (σ�
   · -- 2.
     unfold paratopism
     intro HA
-    have := @conjugate.main_imp n d H σ_d.symm (conjugate σ_d (isotopism σₙd A)) HA ; clear HA
-    
-    done
+    rw [← isotopism.left_inverse σₙd A]
+    apply isotopism.main_imp (λ x => (σₙd x).symm) (isotopism σₙd A)
+    rw [← conjugate.left_inverse σ_d (isotopism σₙd A)]
+    apply conjugate.main_imp σ_d.symm (conjugate σ_d (isotopism σₙd A)) 
+    exact HA
+
+
+
