@@ -31,55 +31,309 @@ def is_LatinHypercube {n d : Nat} (A : Set (Fin d → Fin n)) : Prop :=
     False
 
 
--- -- Define the set of all latin squares of size n
--- def 𝓗 (n d : Nat) : Set (Set (Fin d → Fin n)) := 
---   {A : Set (Fin d → Fin n) | is_LatinHypercube A}
-
-structure 𝓗 (n d : Nat) :=
+structure LatinHypercube (n d : Nat) :=
   (H0 : n > 0 ∧ d > 1)
-  (set : Set (Set (Fin d → Fin n)))
-  (prop : ∀ A : Set (Fin d → Fin n), A ∈ set ↔ is_LatinHypercube A)
+  (set : Set (Fin d → Fin n))
+  (prop : is_LatinHypercube set)
+
+-- def 𝓗 (n d : Nat) := {_ : LatinHypercube n d}
+
+-- Define Isotopism class
+def Blindisotopism {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) (A : Set (Fin d → Fin n)) : 
+  Set (Fin d → Fin n) := {b : Fin d → Fin n | ∃ a ∈ A, b = (λ x => σₙd x (a x))}
+
+lemma Blindisotopism.main_imp {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) :
+  ∀ A : Set (Fin d → Fin n), is_LatinHypercube A → is_LatinHypercube (Blindisotopism σₙd A) := by
+  intro A
+  unfold is_LatinHypercube
+  simp only [gt_iff_lt, ne_eq, dite_eq_ite]
+
+  by_cases H0 : n > 0 ∧ d > 1
+  · -- 1.
+    simp only [H0, if_true]
+    intro HA f x
+    specialize HA (λ x => (σₙd x).symm (f x)) x
+    rcases HA with ⟨a', ha'1, ha'2⟩
+    use λ x => σₙd x (a' x)
+    constructor
+    · -- 1.
+      simp only ; clear ha'2
+      constructor
+      · -- 1.
+        unfold Blindisotopism
+        rw [Set.mem_setOf_eq]
+        exact ⟨ a', ha'1.1, rfl ⟩
+      · -- 2.
+        rintro y' hy'
+        rw [ha'1.2 y' hy', Equiv.apply_symm_apply]
+        done
+      done
+
+    · -- 2.
+      simp only [and_imp] ; clear ha'1
+      rintro a1 ha1 ha1f
+      unfold Blindisotopism at ha1
+      rw [Set.mem_setOf_eq] at ha1
+      rcases ha1 with ⟨a2, ha2, rfl⟩
+      have : a2 = a' := by
+        apply ha'2 ; clear ha'2 a'
+        refine ⟨ ha2, ?_ ⟩ ; clear ha2 A
+        rintro y' hy'
+        rw [← (ha1f y' hy'), Equiv.symm_apply_apply]
+        done
+      rw [this]
+      done
+    done
+  · -- 2.
+    simp only [H0, if_false]
+  done
+
+theorem Blindisotopism.main {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) :
+  ∀ A : Set (Fin d → Fin n), is_LatinHypercube A ↔ is_LatinHypercube (Blindisotopism σₙd A) := by
+  intro A
+  constructor
+  · -- 1.
+    exact Blindisotopism.main_imp σₙd A
+    done
+  · -- 2.
+    rintro HA
+    have HA' := @Blindisotopism.main_imp n d (λ x => (σₙd x).symm) (Blindisotopism σₙd A) HA ; clear HA
+    have : Blindisotopism (fun x => (σₙd x).symm) (Blindisotopism σₙd A) = A := by
+      unfold Blindisotopism
+      ext f
+      simp
+      constructor
+      · -- 1.
+        rintro ⟨a, ⟨ f, hf, rfl ⟩, rfl⟩
+        simp only [Equiv.symm_apply_apply]
+        exact hf
+      · -- 2.
+        rintro hf
+        use λ x => (σₙd x) (f x)
+        constructor
+        · exact ⟨ f, hf, rfl ⟩
+        · simp only [Equiv.symm_apply_apply]
+      done
+    rw [← this]
+    exact HA'
+    done
+
+class Isotopism (n d : Nat) extends Equiv (LatinHypercube n d) (LatinHypercube n d) where
+  (σₙd : Fin d → Fin n ≃ Fin n)
+  (iso : toEquiv.toFun = λ A : (LatinHypercube n d) => 
+    ⟨ A.H0, {b : Fin d → Fin n | ∃ a ∈ A.set, b = (λ x => σₙd x (a x))}, Blindisotopism.main_imp σₙd A.set A.prop ⟩)
+  (inv_iso : toEquiv.invFun = λ A : (LatinHypercube n d) => 
+    ⟨ A.H0, {b : Fin d → Fin n | ∃ a ∈ A.set, b = (λ x => (σₙd x).symm (a x))}, 
+      Blindisotopism.main_imp (λ x => (σₙd x).symm) A.set A.prop ⟩)
+  
+
+def Blindconjugate {n d : Nat} (σ_d : Fin d ≃ Fin d) (A : Set (Fin d → Fin n)) : 
+  Set (Fin d → Fin n) := {b : Fin d → Fin n | ∃ a ∈ A, b = a ∘ σ_d}
+
+lemma conjugate.main_imp {n d : Nat} {H : 𝓗 n d} (σ_d : Fin d ≃ Fin d) (A : Set (Fin d → Fin n)) :
+  A ∈ H.set → conjugate σ_d A ∈ H.set := by
+  rw [H.prop, H.prop]
+  unfold is_LatinHypercube
+  simp only [gt_iff_lt, H.H0, and_self, ne_eq, dite_eq_ite, ite_true]
+
+  rintro HA f x
+  specialize HA (λ x => f (σ_d.symm x)) (σ_d x)
+  rcases HA with ⟨a', ha'1, ha'2⟩
+  use λ x => a' (σ_d x)
+  constructor
+  · -- 1.
+    simp only ; clear ha'2
+    constructor
+    · -- 1.
+      unfold conjugate ; clear H
+      rw [Set.mem_setOf_eq]
+      use a'
+      refine ⟨ ha'1.1, ?_ ⟩
+      ext y
+      simp only [Function.comp_apply]
+      done
+    · -- 2.
+      rintro y' hy' ; clear H 
+      have := ha'1.2 (σ_d y') 
+      simp at this
+      apply this ; clear this
+      exact hy'
+      done
+    done
+  · -- 2.
+    simp only [and_imp] ; clear ha'1
+    rintro a1 ha1 ha1f
+    unfold conjugate at ha1
+    rw [Set.mem_setOf_eq] at ha1
+    rcases ha1 with ⟨a2, ha2, rfl⟩ ; clear H
+    have : a2 = a' := by
+      apply ha'2 ; clear ha'2 a'
+      refine ⟨ ha2, ?_ ⟩ ; clear ha2 A
+      rintro y' hy'
+      specialize ha1f (σ_d.symm y') (by contrapose! hy' ; rw [hy', Equiv.apply_symm_apply])
+      rw [← ha1f]
+      simp only [Function.comp_apply, Equiv.apply_symm_apply]
+      done
+    rw [this]
+    ext
+    simp only [Function.comp_apply]
+    done
+  done
+
+theorem conjugate.main {n d : Nat} {H : 𝓗 n d} (σ_d : Fin d ≃ Fin d) (A : Set (Fin d → Fin n)) :
+  A ∈ H.set ↔ conjugate σ_d A ∈ H.set := by
+  constructor
+  · -- 1.
+    exact conjugate.main_imp σ_d A
+    done
+  · -- 2.
+    rintro HA'
+    have HA'' := @conjugate.main_imp n d H σ_d.symm (conjugate σ_d A) HA' ; clear HA'
+    have : conjugate σ_d.symm (conjugate σ_d A) = A := by
+      unfold conjugate
+      ext f
+      simp
+      constructor
+      · -- 1.
+        rintro ⟨a, ⟨ f, hf, rfl ⟩, rfl⟩
+        simp only [comp_equiv_symm]
+        exact hf
+      · -- 2.
+        rintro hf
+        use λ x => f (σ_d x)
+        constructor
+        · exact ⟨ f, hf, rfl ⟩
+        · ext x ; simp only [Function.comp_apply, Equiv.apply_symm_apply]
+      done
+    rw [← this]
+    exact HA''
+    done
+
+lemma Blindconjugate.main_imp {n d : Nat} (σ_d : Fin d ≃ Fin d) :
+  ∀ A : Set (Fin d → Fin n), is_LatinHypercube A → is_LatinHypercube (Blindconjugate σ_d A) := by
+  intro A
+  unfold is_LatinHypercube
+  simp only [gt_iff_lt, ne_eq, dite_eq_ite]
+
+  by_cases H0 : n > 0 ∧ d > 1
+  · -- 1.
+    simp only [H0, if_true] ; clear H0
+    intro HA f x
+    specialize HA (λ x => f (σ_d.symm x)) (σ_d x)
+    rcases HA with ⟨a', ha'1, ha'2⟩
+    use λ x => a' (σ_d x)
+    constructor
+    · -- 1.
+      simp only ; clear ha'2
+      constructor
+      · -- 1.
+        unfold Blindconjugate
+        rw [Set.mem_setOf_eq]
+        exact ⟨ a', ha'1.1, by ext y ; rw [Function.comp_apply] ⟩
+      · -- 2.
+        rintro y' hy'
+        have := ha'1.2 (σ_d y') 
+        rw [EmbeddingLike.apply_eq_iff_eq, Equiv.symm_apply_apply] at this
+        exact this hy'
+    · -- 2.
+      simp only [and_imp] ; clear ha'1
+      rintro a1 ha1 ha1f
+      unfold Blindconjugate at ha1
+      rw [Set.mem_setOf_eq] at ha1
+      rcases ha1 with ⟨a2, ha2, rfl⟩
+      unfold Function.comp
+      have : a2 = a' := by
+        apply ha'2 ; clear ha'2 a'
+        refine ⟨ ha2, ?_ ⟩ ; clear ha2 A
+        rintro y' hy'
+        specialize ha1f (σ_d.symm y') (by contrapose! hy' ; rw [hy', Equiv.apply_symm_apply])
+        rw [← ha1f, Function.comp_apply, Equiv.apply_symm_apply]
+        done
+      rw [this]
+    done
+  ·
+    simp only [H0, if_false]
+  done
+
+theorem Blindconjugate.main {n d : Nat} (σ_d : Fin d ≃ Fin d) :
+  ∀ A : Set (Fin d → Fin n), is_LatinHypercube A ↔ is_LatinHypercube (Blindconjugate σ_d A) := by
+  intro A
+  constructor
+  · -- 1.
+    exact Blindconjugate.main_imp σ_d A
+    done
+  · -- 2.
+    rintro HA
+    have HA' := @Blindconjugate.main_imp n d σ_d.symm (Blindconjugate σ_d A) HA ; clear HA
+    have : Blindconjugate σ_d.symm (Blindconjugate σ_d A) = A := by
+      unfold Blindconjugate
+      ext f
+      simp
+      constructor
+      · -- 1.
+        rintro ⟨a, ⟨ f, hf, rfl ⟩, rfl⟩
+        have : (f ∘ σ_d) ∘ σ_d.symm = f := by
+          ext x
+          rw [Function.comp_apply, Function.comp_apply, Equiv.apply_symm_apply]
+          done
+        rw [this]
+        exact hf
+      · -- 2.
+        rintro hf
+        use λ x => f (σ_d x)
+        constructor
+        · exact ⟨ f, hf, rfl ⟩
+        · ext x ; simp only [Function.comp_apply, Equiv.apply_symm_apply]
+      done
+    rw [← this]
+    exact HA'
+    done
+
+-- Define Conjugation class
+class Conjugation (n d : Nat) extends Equiv (LatinHypercube n d) (LatinHypercube n d) where
+  (σ_d : Fin d ≃ Fin d)
+  (conj : toEquiv.toFun = λ A : (LatinHypercube n d) => 
+    ⟨ A.H0, {b : Fin d → Fin n | ∃ a ∈ A.set, b = a ∘ σ_d}, conjugate.main_imp σ_d A.set A.prop ⟩)
+  (inv_conj : toEquiv.invFun = λ A : (LatinHypercube n d) => 
+    ⟨ A.H0, {b : Fin d → Fin n | ∃ a ∈ A.set, b = a ∘ σ_d.symm}, 
+      conjugate.main_imp σ_d.symm A.set A.prop ⟩)
+
+class Paratopism {n d : Nat} (H : 𝓗 n d) extends LHCT H where
+  (σ_d : Fin d ≃ Fin d)
+  (σₙd : Fin d → Fin n ≃ Fin n)
+  (Para : to_fun = λ (A : Set (Fin d → Fin n)) => {b : Fin d → Fin n | ∃ a ∈ A, b = (λ x => (σₙd (σ_d x)) ((a ∘ σ_d) x))})
 
 
-def is_reduced {n d : Nat} (A : Set (Fin d → Fin n)) : Prop := 
-  if H0 : n > 0 ∧ d > 1 then 
-    is_LatinHypercube A ∧
-    ∀ x : Fin d, ∀ i : Fin n, ∃ a : Fin d → Fin n, a ∈ A ∧
-    a = λ y => if y = x ∨ y = (⟨ 0, by linarith only [H0.2] ⟩ : Fin d) 
-      then i else (⟨0, by linarith only [H0.1]⟩ : Fin n)
-  else 
-    False
-
-
-structure 𝓡 (n d : Nat) :=
-  (H0 : n > 0 ∧ d > 1)
-  (set : Set (Set (Fin d → Fin n)))
-  (prop : ∀ A : Set (Fin d → Fin n), A ∈ set → is_reduced A)
-
+instance : Group (Isotopism H) where
+  one := ⟨ λ A => Equiv., λ A HA => HA, λ A => A, λ A HA => HA, 
+          λ A => by simp only [Function.left_id, Function.right_id], 
+          λ A => by simp only [Function.left_id, Function.right_id] ⟩
+  mul := Mul.mul
+  inv := Inv.inv
+  mul_assoc := by
+    intros a b c
+    ext A
+    simp only [Mul.mul, Function.comp_apply]
+    done
+  one_mul := by
+    intro a
+    ext A
+    simp only [Mul.mul, Function.comp_apply]
+    done
+  mul_one := by
+    intro a
+    ext A
+    simp only [Mul.mul, Function.comp_apply]
+    done
+  mul_left_inv := by
+    intro a
+    ext A
+    simp only [Mul.mul, Inv.inv, Function.comp_apply]
+    done
+  
 
 /-
-"The usual notions of isotopism, paratopism and isomorphism generalise naturally from
-latin squares to higher dimension. Let Sn be the symmetric group on [n] and let Scn denote
-the direct product of c copies of Sn. Then the natural action of Sd+1n on [n]d+1 induces
-an action on Hdn (where, as discussed above, we associate each H ∈ Hdn with a subset
-TH ⊆ [n]d+1). This action is called isotopism (or isotopy) and its orbits are called isotopy
-classes. Define ∆d+1n to be the diagonal subgroup of Sd+1n , that is ∆d+1n = {(g,g,...,g) ∈
-Sd+1n }. An important special case of isotopism is the action of ∆d+1n on Hdn. This action
-is called isomorphism and its orbits are called isomorphism classes. If the hypercube is
-regarded as the table of values of a d-ary quasigroup on [n], then isomorphisms of the
-hypercube correspond to standard isomorphisms of the quasigroup.
-A further group action on a hypercube is provided by permutation of the elements of
-tuples. In this action, a permutation τ ∈ Sd+1 maps the tuple 〈v1,v2,...,vd+1〉 onto the
-tuple 〈v1,v2,...,vd+1〉τ = 〈w1,w2,...,wd+1〉 where wiτ = vi for 1 ≤ i ≤ d+1. Here, and
-3
-elsewhere, we use the superscript notation for the image of an object under a function;
-thus iτ means τ(i), and Lτ is the image of L obtained by applying τ to each of its tuples.
-Such images are the conjugates (also called parastrophes) of L.
-An arbitrary combination of a conjugacy and an isotopism is called a paratopism
-(or paratopy). The set of all paratopisms corresponds to the wreath product Sn o Sd+1 in
-its natural action on [n]d+1. The orbits of its action on the set of all hypercubes are called
-paratopy classes, main classes or species.
-The stabilisers of a latin hypercube L under isotopism, paratopism and isomorphism
+"The stabilisers of a latin hypercube L under isotopism, paratopism and isomorphism
 are known respectively as the autotopism group, autoparatopism group and automorphism
 group of L. We use respectively Is(L), Par(L) and Aut(L) to denote these groups. For
 example, Aut(L) = {σ ∈ ∆d+1n | Lσ = L}."
@@ -90,10 +344,6 @@ def single_isotopism {n d : Nat} (σₙ : Fin n ≃ Fin n) (y : Fin d) (A : Set 
   Set (Fin d → Fin n) := 
   {b : Fin d → Fin n | ∃ a ∈ A, b = (λ x => if x = y then σₙ (a y) else (a x))}
 
-def isotopism {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) (A : Set (Fin d → Fin n)) : 
-  Set (Fin d → Fin n) :=
-  {b : Fin d → Fin n | ∃ a ∈ A, b = (λ x => σₙd x (a x))}
-
 def isotopism.inverse_map {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) (A : Set (Fin d → Fin n)) : 
   Set (Fin d → Fin n) :=
   isotopism (λ x => (σₙd x).symm) A
@@ -101,10 +351,6 @@ def isotopism.inverse_map {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) (A : 
 def isomorphism {n d : Nat} (σₙ : Fin n ≃ Fin n) (A : Set (Fin d → Fin n)) : 
   Set (Fin d → Fin n) :=
   {b : Fin d → Fin n | ∃ a ∈ A, b = σₙ ∘ a}
-
-def conjugate {n d : Nat} (σ_d : Fin d ≃ Fin d) (A : Set (Fin d → Fin n)) : 
-  Set (Fin d → Fin n) :=
-  {b : Fin d → Fin n | ∃ a ∈ A, b = a ∘ σ_d}
 
 def conjugate.inverse_map {n d : Nat} (σ_d : Fin d ≃ Fin d) (A : Set (Fin d → Fin n)) : 
   Set (Fin d → Fin n) :=
@@ -126,6 +372,31 @@ def paratopism.inverse_map_raw {n d : Nat} (σ_d : Fin d ≃ Fin d) (σₙd : Fi
     (A : Set (Fin d → Fin n)) : 
   Set (Fin d → Fin n) := {b : Fin d → Fin n | ∃ a ∈ A, b = (λ x => (σₙd x).symm ((a ∘ σ_d.symm) x))}
 
+
+
+
+structure Isotopism {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) :=
+  (to_fun : Set (Fin d → Fin n) → Set (Fin d → Fin n))
+  (prop : to_fun = λ A => {b : Fin d → Fin n | ∃ a ∈ A, b = (λ x => σₙd x (a x))})
+
+
+
+
+structure conjugate_equiv {n d : Nat} (σ_d : Fin d ≃ Fin d) :=
+  (to_fun : Set (Fin d → Fin n) → Set (Fin d → Fin n))
+  (inv_fun : Set (Fin d → Fin n) → Set (Fin d → Fin n))
+  (fun_def : to_fun = conjugate σ_d)
+  (inv_def : inv_fun = conjugate σ_d.symm)
+  (left_inv : Function.LeftInverse inv_fun to_fun)
+  (right_inv : Function.RightInverse inv_fun to_fun)
+
+structure paratopism_equiv {n d : Nat} (σ_d : Fin d ≃ Fin d) (σₙd : Fin d → Fin n ≃ Fin n) :=
+  (to_fun : Set (Fin d → Fin n) → Set (Fin d → Fin n))
+  (inv_fun : Set (Fin d → Fin n) → Set (Fin d → Fin n))
+  (prop : to_fun = paratopism σ_d σₙd)
+  (prop_inv : inv_fun = paratopism.inverse_map σ_d σₙd)
+  (left_inv : Function.LeftInverse inv_fun to_fun)
+  (right_inv : Function.RightInverse inv_fun to_fun)
 
 -- composite defintion of paratopism and the direct definition are equivalent
 lemma paratopism.raw.main {n d : Nat} (σ_d : Fin d ≃ Fin d) (σₙd : Fin d → Fin n ≃ Fin n) :
@@ -407,83 +678,6 @@ lemma isotopism.comp {n d : Nat} {σₙd1 σₙd2 : Fin d → Fin n ≃ Fin n} {
 -- ↓                           |
 -- f'  -Find the point in A →  a'
 
-lemma isotopism.main_imp {n d : Nat} {H : 𝓗 n d} (σₙd : Fin d → Fin n ≃ Fin n)
-  (A : Set (Fin d → Fin n)) :
-  A ∈ H.set → isotopism σₙd A ∈ H.set := by
-  rw [H.prop, H.prop]
-  unfold is_LatinHypercube
-  simp only [gt_iff_lt, H.H0, and_self, ne_eq, dite_eq_ite, ite_true]
-
-  rintro HA f x
-  specialize HA (λ x => (σₙd x).symm (f x)) x
-  rcases HA with ⟨a', ha'1, ha'2⟩
-  use λ x => σₙd x (a' x)
-  constructor
-  · -- 1.
-    simp only ; clear ha'2
-    constructor
-    · -- 1.
-      unfold isotopism ; clear H
-      rw [Set.mem_setOf_eq]
-      use a'
-      refine ⟨ ha'1.1, ?_ ⟩
-      simp only
-      done
-    · -- 2.
-      rintro y' hy' ; clear H 
-      have := ha'1.2 y' hy' ; clear ha'1 hy' A x
-      simp only [Function.comp_apply, Equiv.symm_apply_apply] at this
-      rw [this, Equiv.apply_symm_apply]
-      done
-    done
-
-  · -- 2.
-    simp only [and_imp] ; clear ha'1
-    rintro a1 ha1 ha1f
-    unfold isotopism at ha1
-    rw [Set.mem_setOf_eq] at ha1
-    rcases ha1 with ⟨a2, ha2, rfl⟩ ; clear H
-    have : a2 = a' := by
-      apply ha'2 ; clear ha'2 a'
-      refine ⟨ ha2, ?_ ⟩ ; clear ha2 A
-      rintro y' hy'
-      specialize ha1f y' hy'
-      simp only [Function.comp_apply, Equiv.apply_symm_apply] at ha1f
-      rw [← ha1f, Equiv.symm_apply_apply]
-      done
-    rw [this]
-    done
-  done
-
-theorem isotopism.main {n d : Nat} {H : 𝓗 n d} (σₙd : Fin d → Fin n ≃ Fin n) 
-  (A : Set (Fin d → Fin n)) :
-  A ∈ H.set ↔ isotopism σₙd A ∈ H.set := by
-  constructor
-  · -- 1.
-    exact isotopism.main_imp σₙd A
-    done
-  · -- 2.
-    rintro HA'
-    have HA'' := @isotopism.main_imp n d H (λ x => (σₙd x).symm) (isotopism σₙd A) HA' ; clear HA'
-    have : isotopism (fun x => (σₙd x).symm) (isotopism σₙd A) = A := by
-      unfold isotopism
-      ext f
-      simp
-      constructor
-      · -- 1.
-        rintro ⟨a, ⟨ f, hf, rfl ⟩, rfl⟩
-        simp only [Equiv.symm_apply_apply]
-        exact hf
-      · -- 2.
-        rintro hf
-        use λ x => (σₙd x) (f x)
-        constructor
-        · exact ⟨ f, hf, rfl ⟩
-        · simp only [Equiv.symm_apply_apply]
-      done
-    rw [← this]
-    exact HA''
-    done
 
 theorem single_isotopism.main {n d : Nat} {H : 𝓗 n d} (σₙ : Fin n ≃ Fin n) (y : Fin d) 
   (A : Set (Fin d → Fin n)) :
@@ -493,84 +687,6 @@ theorem single_isotopism.main {n d : Nat} {H : 𝓗 n d} (σₙ : Fin n ≃ Fin 
 theorem isomorphism.main {n d : Nat} {H : 𝓗 n d} (σₙ : Fin n ≃ Fin n) (A : Set (Fin d → Fin n)) :
   A ∈ H.set ↔ isomorphism σₙ A ∈ H.set := by rw [isomorphism.isotopism σₙ A, ← isotopism.main]
 
-lemma conjugate.main_imp {n d : Nat} {H : 𝓗 n d} (σ_d : Fin d ≃ Fin d) (A : Set (Fin d → Fin n)) :
-  A ∈ H.set → conjugate σ_d A ∈ H.set := by
-  rw [H.prop, H.prop]
-  unfold is_LatinHypercube
-  simp only [gt_iff_lt, H.H0, and_self, ne_eq, dite_eq_ite, ite_true]
-
-  rintro HA f x
-  specialize HA (λ x => f (σ_d.symm x)) (σ_d x)
-  rcases HA with ⟨a', ha'1, ha'2⟩
-  use λ x => a' (σ_d x)
-  constructor
-  · -- 1.
-    simp only ; clear ha'2
-    constructor
-    · -- 1.
-      unfold conjugate ; clear H
-      rw [Set.mem_setOf_eq]
-      use a'
-      refine ⟨ ha'1.1, ?_ ⟩
-      ext y
-      simp only [Function.comp_apply]
-      done
-    · -- 2.
-      rintro y' hy' ; clear H 
-      have := ha'1.2 (σ_d y') 
-      simp at this
-      apply this ; clear this
-      exact hy'
-      done
-    done
-  · -- 2.
-    simp only [and_imp] ; clear ha'1
-    rintro a1 ha1 ha1f
-    unfold conjugate at ha1
-    rw [Set.mem_setOf_eq] at ha1
-    rcases ha1 with ⟨a2, ha2, rfl⟩ ; clear H
-    have : a2 = a' := by
-      apply ha'2 ; clear ha'2 a'
-      refine ⟨ ha2, ?_ ⟩ ; clear ha2 A
-      rintro y' hy'
-      specialize ha1f (σ_d.symm y') (by contrapose! hy' ; rw [hy', Equiv.apply_symm_apply])
-      rw [← ha1f]
-      simp only [Function.comp_apply, Equiv.apply_symm_apply]
-      done
-    rw [this]
-    ext
-    simp only [Function.comp_apply]
-    done
-  done
-
-theorem conjugate.main {n d : Nat} {H : 𝓗 n d} (σ_d : Fin d ≃ Fin d) (A : Set (Fin d → Fin n)) :
-  A ∈ H.set ↔ conjugate σ_d A ∈ H.set := by
-  constructor
-  · -- 1.
-    exact conjugate.main_imp σ_d A
-    done
-  · -- 2.
-    rintro HA'
-    have HA'' := @conjugate.main_imp n d H σ_d.symm (conjugate σ_d A) HA' ; clear HA'
-    have : conjugate σ_d.symm (conjugate σ_d A) = A := by
-      unfold conjugate
-      ext f
-      simp
-      constructor
-      · -- 1.
-        rintro ⟨a, ⟨ f, hf, rfl ⟩, rfl⟩
-        simp only [comp_equiv_symm]
-        exact hf
-      · -- 2.
-        rintro hf
-        use λ x => f (σ_d x)
-        constructor
-        · exact ⟨ f, hf, rfl ⟩
-        · ext x ; simp only [Function.comp_apply, Equiv.apply_symm_apply]
-      done
-    rw [← this]
-    exact HA''
-    done
 
 lemma paratopism.main_imp {n d : Nat} {H : 𝓗 n d} (σ_d : Fin d ≃ Fin d) 
   (σₙd : Fin d → Fin n ≃ Fin n) (A : Set (Fin d → Fin n)) :
