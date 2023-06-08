@@ -117,11 +117,151 @@ theorem Blindisotopism.main {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) :
 class Isotopism (n d : Nat) extends Equiv (LatinHypercube n d) (LatinHypercube n d) where
   (σₙd : Fin d → Fin n ≃ Fin n)
   (iso : toEquiv.toFun = λ A : (LatinHypercube n d) => 
-    ⟨ A.H0, {b : Fin d → Fin n | ∃ a ∈ A.set, b = (λ x => σₙd x (a x))}, Blindisotopism.main_imp σₙd A.set A.prop ⟩)
+    ⟨ A.H0, Blindisotopism σₙd A.set, Blindisotopism.main_imp σₙd A.set A.prop ⟩)
   (inv_iso : toEquiv.invFun = λ A : (LatinHypercube n d) => 
     ⟨ A.H0, {b : Fin d → Fin n | ∃ a ∈ A.set, b = (λ x => (σₙd x).symm (a x))}, 
       Blindisotopism.main_imp (λ x => (σₙd x).symm) A.set A.prop ⟩)
+
+
+theorem Isotopism.ext_equiv {n d : Nat} (T1 T2 : Isotopism n d) : 
+  T1.toEquiv = T2.toEquiv → T1 = T2 := by
+  sorry
+
+@[ext] 
+theorem Isotopism.ext {n d : Nat} (T1 T2 : Isotopism n d) : 
+  T1.toFun = T2.toFun → T1 = T2 := by
+  intro h
+  apply Isotopism.ext_equiv
+  ext A
+  rw [← Equiv.toFun_as_coe, ← Equiv.toFun_as_coe, h]
   
+
+def Isotopism.id {n d : Nat} : Isotopism n d := 
+  ⟨ Equiv.refl (LatinHypercube n d), λ _ => Equiv.refl (Fin n), by unfold Blindisotopism; simp; rfl, by simp; rfl ⟩
+
+instance { n d : Nat} : Mul (Isotopism n d) where
+  mul := λ T1 T2 : Isotopism n d => ⟨ Equiv.trans T1.toEquiv T2.toEquiv, λ x => Equiv.trans (T1.σₙd x) (T2.σₙd x),
+    by 
+      ext A
+      unfold Equiv.trans Function.comp 
+      simp only
+      have := T1.iso
+      rw [Equiv.toFun_as_coe] at this
+      rw [this] ; clear this
+      have := T2.iso
+      rw [Equiv.toFun_as_coe] at this
+      rw [this] ; clear this
+      simp only [Blindisotopism, Set.mem_setOf_eq, Equiv.coe_fn_mk, LatinHypercube.mk.injEq]
+
+      ext x
+      constructor
+      · -- 1.
+        rintro ⟨_, ⟨ a, ha, rfl ⟩, rfl⟩
+        exact ⟨ a, ha, rfl ⟩
+      · -- 2.
+        rintro ⟨a, ha, rfl⟩
+        use λ x => (T1.σₙd x) (a x)
+        exact ⟨ ⟨ a, ha, rfl ⟩, rfl ⟩
+        done
+      done
+    ,
+    by
+      ext A
+      unfold Equiv.trans Function.comp 
+      simp only
+      have := T1.inv_iso
+      rw [Equiv.invFun_as_coe] at this
+      rw [this] ; clear this
+      have := T2.inv_iso
+      unfold Isotopism at this
+      rw [Equiv.invFun_as_coe] at this
+      rw [this] ; clear this
+      simp only [Set.mem_setOf_eq, Equiv.coe_fn_symm_mk, LatinHypercube.mk.injEq]
+
+      ext x
+      constructor
+      · -- 1.
+        rintro ⟨_, ⟨ a, ha, rfl ⟩, rfl⟩
+        exact ⟨ a, ha, rfl ⟩
+      · -- 2.
+        rintro ⟨a, ha, rfl⟩
+        use λ x => (T2.σₙd x).symm (a x)
+        exact ⟨ ⟨ a, ha, rfl ⟩, rfl ⟩
+      done
+  ⟩
+
+instance { n d : Nat} : One (Isotopism n d) where
+  one := Isotopism.id
+
+instance { n d : Nat} : Inv (Isotopism n d) where
+  inv := λ T : Isotopism n d => ⟨ T.toEquiv.symm, λ x => (T.σₙd x).symm, by
+    ext A
+    unfold Equiv.symm 
+    simp only
+    have := T.inv_iso
+    rw [this] ; clear this
+    simp only [Blindisotopism, Equiv.invFun_as_coe, Equiv.toFun_as_coe, Equiv.coe_fn_mk]
+    ,
+    by
+      ext A
+      unfold Equiv.symm 
+      simp only
+      have := T.iso
+      rw [this] ; clear this
+      simp only [Blindisotopism, Equiv.invFun_as_coe, Equiv.toFun_as_coe, Equiv.coe_fn_mk]
+  ⟩
+
+lemma inverse_justification {n d : Nat} (E : Equiv (LatinHypercube n d) (LatinHypercube n d)) :
+  E.symm ∘ E = Equiv.refl (LatinHypercube n d) := by
+  ext A
+  simp only [Function.comp_apply, Equiv.symm_apply_apply, Equiv.refl_apply]
+
+
+lemma lem1 {n d : Nat} (T : Isotopism n d) :
+  (λ T1 : Isotopism n d => ⟨ T1.toEquiv.symm, λ x => (T1.σₙd x).symm, by
+    ext A
+    unfold Equiv.symm 
+    simp only
+    have := T.inv_iso
+    rw [this] ; clear this
+    simp only [Blindisotopism, Equiv.invFun_as_coe, Equiv.toFun_as_coe, Equiv.coe_fn_mk]
+    ,
+    by
+      ext A
+      unfold Equiv.symm 
+      simp only
+      have := T.iso
+      rw [this] ; clear this
+      simp only [Blindisotopism, Equiv.invFun_as_coe, Equiv.toFun_as_coe, Equiv.coe_fn_mk]
+  ⟩ ) T = Isotopism.id := by
+  done
+
+
+instance {n d : Nat} : Group (Isotopism n d) where
+  mul_assoc := by
+    intros a b c
+    ext A
+    simp only [Mul.mul, Function.comp_apply]
+    done
+  one_mul := by
+    intro a
+    ext A
+    simp only [Mul.mul, Function.comp_apply]
+    done
+  mul_one := by
+    intro a
+    ext A
+    rw [Equiv.toFun_as_coe_apply]
+    done
+  mul_left_inv := by
+    intro a
+    ext A
+    rw [Equiv.toFun_as_coe_apply, Equiv.toFun_as_coe_apply]
+    unfold Isotopism.toEquiv
+    rw [inverse_justification a.toEquiv]
+    sorry
+    done
+
 
 def Blindconjugate {n d : Nat} (σ_d : Fin d ≃ Fin d) (A : Set (Fin d → Fin n)) : 
   Set (Fin d → Fin n) := {b : Fin d → Fin n | ∃ a ∈ A, b = a ∘ σ_d}
@@ -303,10 +443,9 @@ class Paratopism (n d : Nat) extends Equiv (LatinHypercube n d) (LatinHypercube 
 ----------------------------------------------------------------------------------------------
 
 instance { n d : Nat} : Group (Isotopism n d) where
-  one := ⟨ λ A => Equiv., λ A HA => HA, λ A => A, λ A HA => HA, 
-          λ A => by simp only [Function.left_id, Function.right_id], 
-          λ A => by simp only [Function.left_id, Function.right_id] ⟩
-  mul := Mul.mul
+  one := ⟨ Equiv.refl (LatinHypercube n d), λ x => Equiv.refl (Fin n), by simp; rfl, by simp; rfl ⟩
+  mul := λ A B : Isotopism n d => ⟨ Equiv.trans A.toEquiv B.toEquiv, λ x => Equiv.trans (A.σₙd x) (B.σₙd x), 
+    by ext A1; simp; , ?_ ⟩
   inv := Inv.inv
   mul_assoc := by
     intros a b c
