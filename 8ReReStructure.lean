@@ -30,13 +30,14 @@ def is_LatinHypercube {n d : Nat} (A : Set (Fin d → Fin n)) : Prop :=
   else 
     False
 
-
 structure LatinHypercube (n d : Nat) :=
   (H0 : n > 0 ∧ d > 1)
   (set : Set (Fin d → Fin n))
   (prop : is_LatinHypercube set)
 
-  
+
+-- Define Different types of transformations on latin hypercubes
+
 def isotopism {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) (A : LatinHypercube n d) :
   LatinHypercube n d := ⟨ A.H0, {b : Fin d → Fin n | ∃ a ∈ A.set, b = (λ x => σₙd x (a x))}, by
     have := A.prop
@@ -201,7 +202,10 @@ def paratopism.inverse_map {n d : Nat} (σ_d : Fin d ≃ Fin d) (σₙd : Fin d 
     (A : LatinHypercube n d) : 
   LatinHypercube n d := isotopism.inverse_map σₙd (conjugate.inverse_map σ_d A)
 
-theorem isotopism.toEquiv {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) (A : LatinHypercube n d) :
+
+-- These transformations are all bijections on the set of latin hypercubes
+
+theorem isotopism.toEquiv {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) :
   Equiv (LatinHypercube n d) (LatinHypercube n d) := by
   refine ⟨ isotopism σₙd, isotopism.inverse_map σₙd, ?_, ?_ ⟩
   · 
@@ -243,7 +247,7 @@ theorem isotopism.toEquiv {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) (A : 
         simp only [Equiv.apply_symm_apply]
   done
 
-theorem conjugate.toEquiv {n d : Nat} (σ_d : Fin d ≃ Fin d) (A : LatinHypercube n d) :
+theorem conjugate.toEquiv {n d : Nat} (σ_d : Fin d ≃ Fin d) :
   Equiv (LatinHypercube n d) (LatinHypercube n d) := by
   refine ⟨ conjugate σ_d, conjugate.inverse_map σ_d, ?_, ?_ ⟩
   · 
@@ -285,231 +289,155 @@ theorem conjugate.toEquiv {n d : Nat} (σ_d : Fin d ≃ Fin d) (A : LatinHypercu
         simp only [Equiv.symm_apply_apply]
   done
 
-theorem paratopism.toEquiv {n d : Nat} (σ_d : Fin d ≃ Fin d) (σₙd : Fin d → Fin n ≃ Fin n) 
-    (A : LatinHypercube n d) :
+theorem paratopism.toEquiv {n d : Nat} (σ_d : Fin d ≃ Fin d) (σₙd : Fin d → Fin n ≃ Fin n) :
   Equiv (LatinHypercube n d) (LatinHypercube n d) := by
-  refine ⟨ paratopism σ_d σₙd, paratopism.inverse_map σ_d σₙd, ?_, ?_ ⟩
-  · 
-    intro A'
-    simp only [inverse_map, paratopism, conjugate, conjugate.inverse_map, isotopism, isotopism.inverse_map, Set.mem_setOf_eq, Function.comp]
+  refine ⟨ paratopism σ_d σₙd, paratopism.inverse_map σ_d σₙd, ?_, ?_ ⟩ <;>
+  intro A' <;>
+  unfold inverse_map paratopism conjugate conjugate.inverse_map isotopism isotopism.inverse_map <;>
+  simp only [Set.mem_setOf_eq, Function.comp] <;>
+  congr <;>
+  ext f <;>
+  constructor
+  · -- 1.
+    rintro ⟨_, ⟨ _, ⟨ _, ⟨ a, ha, rfl ⟩, rfl ⟩, rfl ⟩, rfl⟩
+    simp only [Equiv.apply_symm_apply, Equiv.symm_apply_apply]
+    exact ha
+  · -- 2.
+    rintro ha'
+    use fun x => (σₙd x) (f x)
+    constructor
+    · -- 1.
+      refine ⟨ λ x => (σₙd (σ_d x)) (f (σ_d x)), ?_, by simp only [Equiv.apply_symm_apply] ⟩
+      refine ⟨ fun x => (σₙd x) (f x), ?_, rfl ⟩
+      refine ⟨ f, ha', rfl ⟩
+    · -- 2.
+      simp only [Equiv.symm_apply_apply]
+    done
+  · -- 1.
+    rintro ⟨_, ⟨ _, ⟨ _, ⟨ a, ha, rfl ⟩, rfl ⟩, rfl ⟩, rfl⟩
+    simp only [Equiv.apply_symm_apply, Equiv.symm_apply_apply]
+    exact ha
+  · -- 2.
+    rintro ha'
+    use fun x => f (σ_d.symm x)
+    constructor
+    · -- 1.
+      refine ⟨ fun x => (σₙd x).symm ((fun x => f (σ_d.symm x)) x), ?_, by simp only [Equiv.apply_symm_apply] ⟩
+      refine ⟨ fun x => f (σ_d.symm x), ?_, by rfl ⟩
+      refine ⟨ f, ha', rfl ⟩
+    · -- 2.
+      simp only [Equiv.symm_apply_apply]
+    done
+  done
+
+
+-- With composition as multiplication, these transformations form a group
+structure Isotopism (n d : Nat) :=
+  (H0 : n > 0 ∧ d > 1)
+  (toFun : LatinHypercube n d → LatinHypercube n d)
+  (iso : ∃ σₙd : Fin d → Fin n ≃ Fin n, toFun = isotopism σₙd)
+
+
+@[ext]
+theorem Isotopism.ext {n d : Nat} (T1 T2 : Isotopism n d) :
+  T1.toFun = T2.toFun → T1 = T2 := by
+  intro h
+  cases T1 ; cases T2
+  congr
+  done
+
+def Isotopism.mul {n d : Nat} : Isotopism n d → Isotopism n d → Isotopism n d :=
+ λ T1 T2 : Isotopism n d => ⟨ 
+  T1.H0, fun x => toFun T1 (toFun T2 x), by
+    rcases T1.iso with ⟨σₙd1, h1⟩
+    rcases T2.iso with ⟨σₙd2, h2⟩
+    use fun x => (σₙd2 x).trans (σₙd1 x)
+    ext A
+    rw [h1, h2]
+    unfold isotopism
     congr
-    ext f
+    ext a
+    simp only [Set.mem_setOf_eq, Equiv.trans_apply]
     constructor
     · -- 1.
-      rintro ⟨a, ⟨ a', ha', rfl ⟩, rfl⟩
-      simp only [Function.comp_apply, Equiv.apply_symm_apply, Equiv.symm_apply_apply]
-      exact ha'
+      rintro ⟨_, ⟨a, ha, rfl⟩, rfl⟩
+      exact ⟨ a, ha, rfl⟩
     · -- 2.
-      rintro ha'
-      use λ x => (σₙd x) (f (σ_d.symm x))
-      constructor
-      · -- 1.
-        exact ⟨ f, ha', rfl ⟩
-      · -- 2.
-        simp only [Function.comp_apply, Equiv.apply_symm_apply, Equiv.symm_apply_apply]
+      rintro ⟨a, ha, rfl⟩
+      exact ⟨ _, ⟨a, ha, rfl⟩, rfl⟩
       done
-  · 
-    intro A'
-    simp only [inverse_map, paratopism, Set.mem_setOf_eq, Function.comp]
+  ⟩
+
+def Isotopism.one {n d : Nat} (H0 : n > 0 ∧ d > 1) : Isotopism n d := 
+⟨ 
+  H0, id, by
+    use fun _ => Equiv.refl (Fin n)
+    unfold isotopism
     congr
-    ext f
-    constructor
-    · -- 1.
-      rintro ⟨a, ⟨ a', ha', rfl ⟩, rfl⟩
-      simp only [Function.comp_apply, Equiv.apply_symm_apply, Equiv.symm_apply_apply]
-      exact ha'
-    · -- 2.
-      rintro ha'
-      use λ x => (σₙd x).symm (f (σ_d x))
-      constructor
-      · -- 1.
-        exact ⟨ f, ha', rfl ⟩
-      · -- 2.
-        simp only [Function.comp_apply, Equiv.apply_symm_apply, Equiv.symm_apply_apply]
-      done
-  done
+    simp only [Equiv.refl_apply, exists_eq_right', Set.setOf_mem_eq]
+⟩
+
+noncomputable def Isotopism.inv {n d : Nat} : Isotopism n d → Isotopism n d := 
+  λ T : Isotopism n d => by
+    choose σₙd _ using T.iso
+    exact ⟨ T.H0, isotopism (fun x => (σₙd x).symm), ⟨ fun x => (σₙd x).symm, rfl ⟩  ⟩
 
 
-
--- small lemmas
-@[simp]
-lemma comp_equiv_symm {α β γ : Type _} (f : β → γ) (σ : α ≃ β) : (f ∘ σ) ∘ σ.symm = f := by
-  ext x
-  rw [Function.comp_apply, Function.comp_apply, Equiv.apply_symm_apply]
-  done
-
-@[simp]
-lemma comp_symm_equiv {α β γ : Type _} (f : α → γ) (σ : α ≃ β) : (f ∘ σ.symm) ∘ σ = f := by
-  ext x
-  simp only [Function.comp_apply, Equiv.symm_apply_apply]
-  done
-
--- Isotopism is an equivalence relation
-lemma isotopism.left_inverse {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) :
-  Function.LeftInverse (isotopism.inverse_map σₙd) (isotopism σₙd) := by
-  unfold isotopism inverse_map Function.LeftInverse
-  rintro A
-  ext f
+theorem Isotopism.inv_leftinv {n d : Nat} (T : Isotopism n d) : Function.LeftInverse (Isotopism.inv T).toFun T.toFun := by
+  rintro x
+  rcases T.iso with ⟨σₙd1, h1⟩
+  rw [h1] ; clear h1
+  unfold inv
+  simp
+  have this := Classical.choose_spec T.inv.iso
+  unfold isotopism
+  congr
+  simp
+  ext a
   constructor
   · -- 1.
-    rintro ⟨a, ⟨ f, hf, rfl ⟩, rfl⟩
-    simp only [Equiv.symm_apply_apply]
-    exact hf
-    done
-  · -- 2.
-    rintro hf
-    use λ x => (σₙd x) (f x)
-    simp only [Equiv.symm_apply_apply, and_true]
-    exact ⟨ f, hf, rfl ⟩
-    done
-
-lemma isotopism.right_inverse {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) :
-  Function.RightInverse (isotopism.inverse_map σₙd) (isotopism σₙd) := by
-  unfold isotopism inverse_map Function.RightInverse Function.LeftInverse
-  rintro A
-  ext f
-  constructor
-  · -- 1.
-    rintro ⟨a, ⟨ f, hf, rfl ⟩, rfl⟩
-    simp only [Equiv.apply_symm_apply]
-    exact hf
-    done
-  · -- 2.
-    rintro hf
-    use λ x => (σₙd x).symm (f x)
-    simp only [Equiv.apply_symm_apply, and_true]
-    exact ⟨ f, hf, rfl ⟩
-    done
-
-theorem isotopism.Equiv {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) :
-  Equiv (Set (Fin d → Fin n)) (Set (Fin d → Fin n)) := by
-  refine ⟨ isotopism σₙd, isotopism.inverse_map σₙd, ?_, ?_ ⟩
-  exact isotopism.left_inverse σₙd
-  exact isotopism.right_inverse σₙd
-  done
-
--- Conjugation is an equivalence relation
-lemma conjugate.left_inverse {n d : Nat} (σ_d : Fin d ≃ Fin d) :
-  Function.LeftInverse (@conjugate.inverse_map n d σ_d) (conjugate σ_d) := by
-  unfold conjugate inverse_map Function.LeftInverse
-  rintro A
-  ext f
-  constructor
-  · -- 1.
-    rintro ⟨a, ⟨ f, hf, rfl ⟩, rfl⟩
-    rw [comp_equiv_symm f σ_d]
-    exact hf
-    done
-  · -- 2.
-    rintro hf
-    use λ x => f (σ_d x)
-    constructor
-    · -- 1.
-      refine ⟨ f, hf, ?_ ⟩
-      ext x
-      rw [Function.comp_apply]
-      done
-    · -- 2.
-      ext x
-      rw [Function.comp_apply, Equiv.apply_symm_apply]
-      done
-  done
-
-lemma conjugate.right_inverse {n d : Nat} (σ_d : Fin d ≃ Fin d) :
-  Function.RightInverse (@conjugate.inverse_map n d σ_d) (conjugate σ_d) := by
-  unfold conjugate inverse_map Function.RightInverse Function.LeftInverse
-  rintro A
-  ext f
-  constructor
-  · -- 1.
-    rintro ⟨a, ⟨ f, hf, rfl ⟩, rfl⟩
-    rw [comp_symm_equiv f σ_d]
-    exact hf
-    done
-  · -- 2.
-    rintro hf
-    use λ x => f (σ_d.symm x)
-    constructor
-    · -- 1.
-      refine ⟨ f, hf, ?_ ⟩
-      ext x
-      rw [Function.comp_apply]
-      done
-    · -- 2.
-      ext x
-      rw [Function.comp_apply, Equiv.symm_apply_apply]
-      done
-  done
-
-@[simp]
-theorem conjugate.Equiv {n d : Nat} (σ_d : Fin d ≃ Fin d) :
-  Equiv (Set (Fin d → Fin n)) (Set (Fin d → Fin n)) := by
-  refine ⟨ conjugate σ_d, conjugate.inverse_map σ_d, ?_, ?_ ⟩
-  exact conjugate.left_inverse σ_d
-  exact conjugate.right_inverse σ_d
-  done
-
--- Paratopism is an equivalence relation
-lemma paratopism.left_inverse {n d : Nat} (σ_d : Fin d ≃ Fin d) (σₙd : Fin d → Fin n ≃ Fin n) :
-  Function.LeftInverse (paratopism.inverse_map σ_d σₙd) (paratopism σ_d σₙd) := by
-  unfold paratopism inverse_map Function.LeftInverse isotopism 
-  unfold conjugate isotopism.inverse_map conjugate.inverse_map
-  rintro A
-  ext f
-  constructor
-  · -- 1.
-    rintro ⟨ _, ⟨ _, ⟨ _, ⟨ a, H, rfl ⟩, rfl ⟩, rfl ⟩, rfl ⟩
-    simp only [Function.comp_apply, Equiv.apply_symm_apply, Equiv.symm_apply_apply]
-    exact H
-  · -- 2.
-    rintro H
-    exact ⟨ λ x => (σₙd x) (f x), 
-            ⟨ λ x => (σₙd (σ_d x)) (f (σ_d x)), 
-              ⟨ λ x => (σₙd x) (f x), 
-                ⟨ f, H, rfl ⟩, 
-                rfl 
-              ⟩, 
-              (by ext x ; simp) 
-            ⟩, 
-            (by ext x ; simp) 
-          ⟩
-    done
-  done
-
-lemma paratopism.right_inverse {n d : Nat} (σ_d : Fin d ≃ Fin d) (σₙd : Fin d → Fin n ≃ Fin n) :
-  Function.RightInverse (paratopism.inverse_map σ_d σₙd) (paratopism σ_d σₙd) := by
-  unfold paratopism inverse_map Function.RightInverse Function.LeftInverse
-  rintro A
-  ext f
-  constructor
-  · -- 1.
-    rintro ⟨ _, ⟨ _, ⟨ _, ⟨ a, H, rfl ⟩, rfl ⟩, rfl ⟩, rfl ⟩
+    rintro ⟨_, ⟨a, ha, rfl⟩, rfl⟩
     simp
-    have : (fun x => a (σ_d.symm x)) ∘ ↑σ_d = a := by
-      ext y
-      simp only [Function.comp_apply, Equiv.symm_apply_apply]
-      done
-    rw [this]
-    exact H
+    
     done
   · -- 2.
-    rintro H
-    exact ⟨ λ x => f (σ_d.symm x),
-            ⟨ λ x => (σₙd x).symm (f (σ_d.symm x)),
-              ⟨ λ x => (f (σ_d.symm x)),
-                ⟨ f, H, rfl ⟩,
-                rfl
-              ⟩, 
-              (by ext x ; simp)
-            ⟩, 
-            (by ext x ; simp)
-          ⟩
+    sorry
     done
+  -- rcases T.inv.iso with ⟨σₙd2, h2⟩
+  -- rw [h1, h2] ; clear h1 h2
 
-@[simp]
-theorem paratopism.Equiv {n d : Nat} (σ_d : Fin d ≃ Fin d) (σₙd : Fin d → Fin n ≃ Fin n) :
-  Equiv (Set (Fin d → Fin n)) (Set (Fin d → Fin n)) := by
-  refine ⟨ paratopism σ_d σₙd, paratopism.inverse_map σ_d σₙd, ?_, ?_ ⟩
-  exact paratopism.left_inverse σ_d σₙd
-  exact paratopism.right_inverse σ_d σₙd
-  done
+
+-- instance group : Group (AddAut A) := by
+--   refine'
+--   { mul := fun g h => AddEquiv.trans h g
+--     one := AddEquiv.refl A
+--     inv := AddEquiv.symm
+--     div := fun g h => AddEquiv.trans h.symm g
+--     npow := @npowRec _ ⟨AddEquiv.refl A⟩ ⟨fun g h => AddEquiv.trans h g⟩
+--     zpow := @zpowRec _ ⟨AddEquiv.refl A⟩ ⟨fun g h => AddEquiv.trans h g⟩ ⟨AddEquiv.symm⟩
+--     .. } <;>
+--   intros <;>
+--   ext <;>
+--   try rfl
+--   apply Equiv.left_inv
+
+
+noncomputable instance Isotopism.Group {n d : Nat} (H0 : n > 0 ∧ d > 1) : Group (Isotopism n d) := by
+  refine'
+  {
+    mul := Isotopism.mul
+
+    one := Isotopism.one H0
+
+    inv := Isotopism.inv
+
+    div := fun g h => Isotopism.mul h.inv g
+    
+    npow := @npowRec _ ⟨Isotopism.one H0⟩ ⟨fun g h => Isotopism.mul h g⟩
+    zpow := @zpowRec _ ⟨Isotopism.one H0⟩ ⟨fun g h => Isotopism.mul h g⟩ ⟨Isotopism.inv⟩
+    .. } <;>
+  intros <;>
+  ext <;>
+  try rfl
+  apply Equiv.left_inv
+

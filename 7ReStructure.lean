@@ -192,8 +192,9 @@ theorem Isotopism.ext {n d : Nat} (T1 T2 : Isotopism n d) :
 def Isotopism.id {n d : Nat} : Isotopism n d := 
   ⟨ Equiv.refl (LatinHypercube n d), by use λ _ => Equiv.refl (Fin n); unfold Blindisotopism; simp; rfl ⟩
 
-instance Isotopism.Mul { n d : Nat} : Mul (Isotopism n d) where
-  mul := λ T1 T2 : Isotopism n d => ⟨ Equiv.trans T1.toEquiv T2.toEquiv,
+
+def Isotopism.comp { n d : Nat} (T1 T2 : Isotopism n d) : Isotopism n d := 
+  ⟨ Equiv.trans T1.toEquiv T2.toEquiv,
     by 
       rcases T1 with ⟨ equiv1, ⟨ σₙd1, iso1 ⟩ ⟩
       rcases T2 with ⟨ equiv2, ⟨ σₙd2, iso2 ⟩ ⟩
@@ -208,11 +209,8 @@ instance Isotopism.Mul { n d : Nat} : Mul (Isotopism n d) where
       done
   ⟩
 
-instance Isotopism.One { n d : Nat} : One (Isotopism n d) where
-  one := Isotopism.id
-
-instance Isotopism.Inv { n d : Nat} : Inv (Isotopism n d) where
-  inv := λ T : Isotopism n d => ⟨ T.toEquiv.symm, by
+def Isotopism.inverse_map {n d : Nat} (T : Isotopism n d) : Isotopism n d := 
+  ⟨ T.toEquiv.symm, by
     rcases T with ⟨ equiv, ⟨ σₙd, iso ⟩ ⟩
     use λ x => (σₙd x).symm
     ext A  
@@ -224,30 +222,36 @@ instance Isotopism.Inv { n d : Nat} : Inv (Isotopism n d) where
     done
   ⟩
 
-instance {n d : Nat} : Group (Isotopism n d) where
-  mul_assoc := by
-    intros a b c
-    ext A
-    simp only [Mul.mul, Function.comp_apply]
-    done
-  one_mul := by
-    intro a
-    ext A
-    simp only [Mul.mul, Function.comp_apply]
-    done
-  mul_one := by
-    intro a
-    ext A
-    rw [Equiv.toFun_as_coe_apply]
-    done
-  mul_left_inv := by
-    intro a
-    ext A
-    rw [Equiv.toFun_as_coe_apply, Equiv.toFun_as_coe_apply]
-    unfold Isotopism.toEquiv
-    -- rw [inverse_justification a.toEquiv]
-    sorry
-    done
+instance Isotopism.Mul { n d : Nat} : Mul (Isotopism n d) where
+  mul := λ T1 T2 : Isotopism n d => Isotopism.comp T1 T2
+
+instance Isotopism.One { n d : Nat} : One (Isotopism n d) where
+  one := Isotopism.id
+
+instance Isotopism.Inv { n d : Nat} : Inv (Isotopism n d) where
+  inv := λ T : Isotopism n d => Isotopism.inverse_map T
+
+theorem Isotopism.LeftInverse { n d : Nat} (T : Isotopism n d) : Isotopism.comp (Isotopism.inverse_map T) T  = Isotopism.id := by
+  unfold Isotopism.comp Isotopism.inverse_map Isotopism.id Equiv.trans Function.comp
+  congr <;>
+  simp only [Equiv.symm_symm, Equiv.apply_symm_apply] <;>
+  rfl
+
+instance {n d : Nat} : Group (Isotopism n d) := by
+  refine'
+  {
+    mul := λ T1 T2 : Isotopism n d => Isotopism.comp T1 T2
+    one := Isotopism.id
+    inv := λ T : Isotopism n d => Isotopism.inverse_map T
+    div := λ T1 T2 : Isotopism n d => Isotopism.comp T1 (Isotopism.inverse_map T2)
+    npow := @npowRec _ ⟨Isotopism.id⟩ ⟨λ T1 T2 => Isotopism.comp T1 T2⟩
+    zpow := @zpowRec _ ⟨Isotopism.id⟩ ⟨λ T1 T2 => Isotopism.comp T1 T2⟩ ⟨Isotopism.inverse_map⟩
+    mul_left_inv := fun T => Isotopism.LeftInverse T
+    .. } <;>
+  intros <;>
+  ext <;>
+  rfl
+  done
 
 
 def Blindconjugate {n d : Nat} (σ_d : Fin d ≃ Fin d) (A : Set (Fin d → Fin n)) : 
