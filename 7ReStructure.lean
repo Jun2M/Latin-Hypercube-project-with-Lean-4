@@ -42,94 +42,63 @@ structure LatinHypercube (n d : Nat) :=
 def Blindisotopism {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) (A : Set (Fin d → Fin n)) : 
   Set (Fin d → Fin n) := {b : Fin d → Fin n | ∃ a ∈ A, b = (λ x => σₙd x (a x))}
 
-def Blindisotopism.inverse_map {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) (A : Set (Fin d → Fin n)) : 
-  Set (Fin d → Fin n) := Blindisotopism (λ x => (σₙd x).symm) A
-
 lemma Blindisotopism.main_imp {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) :
   ∀ A : Set (Fin d → Fin n), is_LatinHypercube A → is_LatinHypercube (Blindisotopism σₙd A) := by
   intro A
   unfold is_LatinHypercube
   simp only [gt_iff_lt, ne_eq, dite_eq_ite]
 
-  by_cases H0 : n > 0 ∧ d > 1
+  by_cases H0 : n > 0 ∧ d > 1 <;> simp only [H0, if_true, if_false] ; clear H0
   · -- 1.
-    simp only [H0, if_true]
-    intro HA f x
+    rintro HA f x
     specialize HA (λ x => (σₙd x).symm (f x)) x
     rcases HA with ⟨a', ha'1, ha'2⟩
     use λ x => σₙd x (a' x)
-    constructor
+    constructor <;> simp only [Blindisotopism, and_imp]
     · -- 1.
-      simp only ; clear ha'2
-      constructor
-      · -- 1.
-        unfold Blindisotopism
-        rw [Set.mem_setOf_eq]
-        exact ⟨ a', ha'1.1, rfl ⟩
-      · -- 2.
-        rintro y' hy'
-        rw [ha'1.2 y' hy', Equiv.apply_symm_apply]
+      refine ⟨ ⟨ a', ha'1.1, rfl ⟩, ?_ ⟩ ; clear ha'2
+      rintro y' hy'
+      rw [ha'1.2 y' hy', Equiv.apply_symm_apply]
       done
-
     · -- 2.
-      simp only [and_imp] ; clear ha'1
-      rintro a1 ha1 ha1f
-      unfold Blindisotopism at ha1
-      rw [Set.mem_setOf_eq] at ha1
-      rcases ha1 with ⟨a2, ha2, rfl⟩
-      have : a2 = a' := by
-        apply ha'2 ; clear ha'2 a'
-        refine ⟨ ha2, ?_ ⟩ ; clear ha2 A
-        rintro y' hy'
-        rw [← (ha1f y' hy'), Equiv.symm_apply_apply]
-        done
-      rw [this]
-    done
-  · -- 2.
-    simp only [H0, if_false]
+      rintro _ ⟨a2, ha2, rfl⟩ ha1f ; clear ha'1
+      suffices h : a2 = a' by rw [h]
+      apply ha'2 _ ⟨ ha2, ?_ ⟩ ; clear ha'2 a' ha2 A
+      rintro y' hy'
+      rw [← (ha1f y' hy'), Equiv.symm_apply_apply]
   done
 
-theorem Blindisotopism.main {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) :
-  ∀ A : Set (Fin d → Fin n), is_LatinHypercube A ↔ is_LatinHypercube (Blindisotopism σₙd A) := by
-  intro A
+theorem Blindisotopism.main {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) (A : Set (Fin d → Fin n)) :
+  is_LatinHypercube A ↔ is_LatinHypercube (Blindisotopism σₙd A) := by
+  refine ⟨ Blindisotopism.main_imp σₙd A, ?_ ⟩
+  rintro HA
+  have HA' := Blindisotopism.main_imp (λ x => (σₙd x).symm) (Blindisotopism σₙd A) HA ; clear HA
+  suffices H : Blindisotopism (fun x => (σₙd x).symm) (Blindisotopism σₙd A) = A by rw [← H] ; exact HA'
+  ext f ; clear HA'
   constructor
   · -- 1.
-    exact Blindisotopism.main_imp σₙd A
+    rintro ⟨a, ⟨ f, hf, rfl ⟩, rfl⟩
+    simp only [Equiv.symm_apply_apply]
+    exact hf
   · -- 2.
-    rintro HA
-    have HA' := @Blindisotopism.main_imp n d (λ x => (σₙd x).symm) (Blindisotopism σₙd A) HA ; clear HA
-    have : Blindisotopism (fun x => (σₙd x).symm) (Blindisotopism σₙd A) = A := by
-      unfold Blindisotopism
-      ext f
-      rw [Set.mem_setOf_eq]
-      constructor
-      · -- 1.
-        rintro ⟨a, ⟨ f, hf, rfl ⟩, rfl⟩
-        simp only [Equiv.symm_apply_apply]
-        exact hf
-      · -- 2.
-        rintro hf
-        use λ x => (σₙd x) (f x)
-        constructor
-        · exact ⟨ f, hf, rfl ⟩
-        · simp only [Equiv.symm_apply_apply]
-      done
-    rw [← this]
-    exact HA'
+    rintro hf
+    refine ⟨ λ x => (σₙd x) (f x), ⟨ f, hf, rfl ⟩, ?_ ⟩
+    simp only [Equiv.symm_apply_apply]
+  done
+  
 
 lemma Blindisotopism.closed_under_comp {n d : Nat} (σₙd1 σₙd2 : Fin d → Fin n ≃ Fin n) (A : Set (Fin d → Fin n) ) :
   Blindisotopism σₙd1 (Blindisotopism σₙd2 A) = Blindisotopism (λ x => Equiv.trans (σₙd2 x) (σₙd1 x)) A := by
   unfold Blindisotopism Equiv.trans
-  simp only [Set.mem_setOf_eq, Equiv.coe_fn_mk, Function.comp_apply]
-  ext x
+  simp only [Set.mem_setOf_eq, Equiv.coe_fn_mk]
+  ext
   constructor
   · -- 1.
     rintro ⟨_, ⟨ a, ha, rfl ⟩, rfl⟩
     exact ⟨ a, ha, rfl ⟩
   · -- 2.
     rintro ⟨a, ha, rfl⟩
-    use λ x => (σₙd2 x) (a x)
-    exact ⟨ ⟨ a, ha, rfl ⟩, rfl ⟩
+    exact ⟨ λ x => (σₙd2 x) (a x), ⟨ a, ha, rfl ⟩, rfl ⟩
   done
 
 lemma Blindisotopism.closed_under_inv {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) :
@@ -252,76 +221,81 @@ lemma Blindconjugate.main_imp {n d : Nat} (σ_d : Fin d ≃ Fin d) :
   unfold is_LatinHypercube
   simp only [gt_iff_lt, ne_eq, dite_eq_ite]
 
-  by_cases H0 : n > 0 ∧ d > 1
-  · -- 1.
-    simp only [H0, if_true] ; clear H0
-    intro HA f x
-    specialize HA (λ x => f (σ_d.symm x)) (σ_d x)
-    rcases HA with ⟨a', ha'1, ha'2⟩
-    use λ x => a' (σ_d x)
-    unfold Blindconjugate
-    constructor
-    · -- 1.
-      simp only ; clear ha'2
-      constructor
-      · -- 1.
-        rw [Set.mem_setOf_eq]
-        exact ⟨ a', ha'1.1, rfl ⟩
-      · -- 2.
-        rintro y' hy' 
-        rw [ha'1.2 (σ_d y'), Equiv.symm_apply_apply] ; clear ha'1 a' A f
-        rw [EmbeddingLike.apply_eq_iff_eq]
-        exact hy'
-      done
-    · -- 2.
-      simp only [and_imp, Set.mem_setOf_eq] ; clear ha'1
-      rintro _ ⟨a, ha, rfl⟩ haf
-      have : a = a' := by
-        apply ha'2 ; clear ha'2 a'
-        refine ⟨ ha, ?_ ⟩ ; clear ha A
-        rintro y' hy'
-        specialize haf (σ_d.symm y') (by contrapose! hy' ; rw [hy', Equiv.apply_symm_apply])
-        rw [← haf, Function.comp_apply, Equiv.apply_symm_apply]
-        done
-      rw [this]
-      rfl
-    done
-  · -- 2.
-    simp only [H0, if_false]
-  done
-
-theorem Blindconjugate.main {n d : Nat} (σ_d : Fin d ≃ Fin d) :
-  ∀ A : Set (Fin d → Fin n), is_LatinHypercube A ↔ is_LatinHypercube (Blindconjugate σ_d A) := by
-  intro A
+  by_cases H0 : n > 0 ∧ d > 1 <;> simp only [H0, if_true, if_false] ; clear H0
+  intro HA f x 
+  specialize HA (λ x => f (σ_d.symm x)) (σ_d x)
+  rcases HA with ⟨a', ha'1, ha'2⟩
+  use λ x => a' (σ_d x)
+  simp only [and_imp, Blindconjugate]
   constructor
   · -- 1.
-    exact Blindconjugate.main_imp σ_d A
-  · -- 2.
-    rintro HA
-    have HA' := Blindconjugate.main_imp σ_d.symm (Blindconjugate σ_d A) HA ; clear HA
-    have : Blindconjugate σ_d.symm (Blindconjugate σ_d A) = A := by
-      unfold Blindconjugate
-      ext f
-      rw [Set.mem_setOf_eq]
-      constructor
-      · -- 1.
-        rintro ⟨a, ⟨ f, hf, rfl ⟩, rfl⟩
-        have : (f ∘ σ_d) ∘ σ_d.symm = f := by
-          ext x
-          rw [Function.comp_apply, Function.comp_apply, Equiv.apply_symm_apply]
-          done
-        rw [this]
-        exact hf
-      · -- 2.
-        rintro hf
-        use λ x => f (σ_d x)
-        constructor
-        · exact ⟨ f, hf, rfl ⟩
-        · ext x ; simp only [Function.comp_apply, Equiv.apply_symm_apply]
-      done
-    rw [← this]
-    exact HA'
+    refine ⟨ ⟨ a', ha'1.1, rfl ⟩, ?_ ⟩ ; clear ha'2
+    rintro y' hy' 
+    rw [← EmbeddingLike.apply_eq_iff_eq σ_d] at hy'
+    rw [ha'1.2 (σ_d y') hy', Equiv.symm_apply_apply]
     done
+  · -- 2.
+    rintro _ ⟨a, ha, rfl⟩ haf ; clear ha'1
+    unfold Function.comp
+    suffices  h : a = a' by rw [h]
+    apply ha'2 _ ⟨ ha, ?_ ⟩ ; clear ha'2 a' ha A
+    rintro y' hy'
+    specialize haf (σ_d.symm y') (by contrapose! hy' ; rw [hy', Equiv.apply_symm_apply])
+    rw [← haf, Function.comp_apply, Equiv.apply_symm_apply]
+  done
+
+theorem Blindconjugate.main {n d : Nat} (σ_d : Fin d ≃ Fin d) (A : Set (Fin d → Fin n)) :
+  is_LatinHypercube A ↔ is_LatinHypercube (Blindconjugate σ_d A) := by
+  refine ⟨ Blindconjugate.main_imp σ_d A, ?_ ⟩
+  rintro HA
+  have HA' := Blindconjugate.main_imp σ_d.symm (Blindconjugate σ_d A) HA ; clear HA
+  suffices H : Blindconjugate σ_d.symm (Blindconjugate σ_d A) = A by rw [← H]; exact HA'
+  ext f ; clear HA'
+  constructor
+  · -- 1.
+    rintro ⟨_, ⟨ f, hf, rfl ⟩, rfl⟩
+    suffices H : (f ∘ σ_d) ∘ σ_d.symm = f by rw [H] ; exact hf
+    ext
+    rw [Function.comp_apply, Function.comp_apply, Equiv.apply_symm_apply]
+    done
+  · -- 2.
+    rintro hf
+    refine ⟨ fun x => f (σ_d x), ⟨ f, hf, rfl ⟩, ?_ ⟩
+    ext
+    simp only [Function.comp_apply, Equiv.apply_symm_apply]
+  done
+
+lemma Blindconjugate.closed_under_comp {n d : Nat} (σ_d1 σ_d2 : Fin d ≃ Fin d) (A : Set (Fin d → Fin n) ) :
+  Blindconjugate σ_d1 (Blindconjugate σ_d2 A) = Blindconjugate (Equiv.trans σ_d1 σ_d2) A := by
+  unfold Blindconjugate Equiv.trans
+  simp only [Set.mem_setOf_eq, Equiv.coe_fn_mk]
+  ext
+  constructor
+  · -- 1.
+    rintro ⟨_, ⟨ a, ha, rfl ⟩, rfl⟩
+    exact ⟨ a, ha, rfl ⟩
+  · -- 2.
+    rintro ⟨a, ha, rfl⟩
+    exact ⟨ λ x => a (σ_d2 x), ⟨ a, ha, rfl ⟩, rfl ⟩
+  done
+  
+lemma Blindconjugate.closed_under_inv {n d : Nat} (σ_d : Fin d ≃ Fin d) :
+  Function.RightInverse (@Blindconjugate n _ σ_d) (@Blindconjugate n _ σ_d.symm) := by
+  unfold Blindconjugate Function.RightInverse Function.LeftInverse
+  simp only [Set.mem_setOf_eq, Equiv.invFun_as_coe, Equiv.toFun_as_coe, Equiv.coe_fn_mk, Function.comp]
+  rintro A
+  ext f
+  constructor
+  · -- 1.
+    rintro ⟨_, ⟨ a, ha, rfl ⟩, rfl⟩
+    simp only [Equiv.apply_symm_apply]
+    exact ha
+  · -- 2.
+    rintro ha
+    exact ⟨ λ x => f (σ_d x), ⟨ f, ha, rfl ⟩, by simp only [Equiv.apply_symm_apply] ⟩
+  done
+
+--------------------------------------------------------------------------
 
 -- Define Conjugation class
 class Conjugation (n d : Nat) extends Equiv (LatinHypercube n d) (LatinHypercube n d) where
