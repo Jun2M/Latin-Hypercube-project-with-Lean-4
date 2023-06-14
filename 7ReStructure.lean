@@ -170,20 +170,17 @@ class Isotopism (n d : Nat) extends Equiv (LatinHypercube n d) (LatinHypercube n
   (iso : ∃ σₙd : Fin d → Fin n ≃ Fin n, toEquiv.toFun = λ A : (LatinHypercube n d) => 
     ⟨ A.H0, Blindisotopism σₙd A.set, Blindisotopism.main_imp σₙd A.set A.prop ⟩)
 
-lemma Isotopism.ext_equiv {n d : Nat} (T1 T2 : Isotopism n d) : 
-  T1.toEquiv = T2.toEquiv → T1 = T2 := by
-  -- intro h
-  rcases T1 with ⟨ ⟨ f, f1, tofunf, invfunf ⟩, iso₁ ⟩
-  rcases T2 with ⟨ ⟨ g, g1, tofung, invfung ⟩, iso₂ ⟩ 
-  simp only [Equiv.mk.injEq, and_imp]
-  rintro h1 h2
-  congr
-  done
-
 @[ext] 
 theorem Isotopism.ext {n d : Nat} (T1 T2 : Isotopism n d) : 
   T1.toFun = T2.toFun → T1 = T2 := by
   intro h
+  have Isotopism.ext_equiv : T1.toEquiv = T2.toEquiv → T1 = T2 := by
+    rcases T1 with ⟨ ⟨ f, f1, tofunf, invfunf ⟩, iso₁ ⟩
+    rcases T2 with ⟨ ⟨ g, g1, tofung, invfung ⟩, iso₂ ⟩ 
+    simp only [Equiv.mk.injEq, and_imp]
+    rintro h1 h2
+    congr
+    done
   apply Isotopism.ext_equiv
   ext A
   rw [← Equiv.toFun_as_coe, ← Equiv.toFun_as_coe, h]
@@ -222,15 +219,6 @@ def Isotopism.inverse_map {n d : Nat} (T : Isotopism n d) : Isotopism n d :=
     done
   ⟩
 
-instance Isotopism.Mul { n d : Nat} : Mul (Isotopism n d) where
-  mul := λ T1 T2 : Isotopism n d => Isotopism.comp T1 T2
-
-instance Isotopism.One { n d : Nat} : One (Isotopism n d) where
-  one := Isotopism.id
-
-instance Isotopism.Inv { n d : Nat} : Inv (Isotopism n d) where
-  inv := λ T : Isotopism n d => Isotopism.inverse_map T
-
 theorem Isotopism.LeftInverse { n d : Nat} (T : Isotopism n d) : Isotopism.comp (Isotopism.inverse_map T) T  = Isotopism.id := by
   unfold Isotopism.comp Isotopism.inverse_map Isotopism.id Equiv.trans Function.comp
   congr <;>
@@ -253,6 +241,7 @@ instance {n d : Nat} : Group (Isotopism n d) := by
   rfl
   done
 
+-------------------------------------------------------------------------------------------
 
 def Blindconjugate {n d : Nat} (σ_d : Fin d ≃ Fin d) (A : Set (Fin d → Fin n)) : 
   Set (Fin d → Fin n) := {b : Fin d → Fin n | ∃ a ∈ A, b = a ∘ σ_d}
