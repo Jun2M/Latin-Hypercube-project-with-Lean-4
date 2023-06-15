@@ -38,6 +38,35 @@ structure LatinHypercube (n d : Nat) :=
 
 -- def 𝓗 (n d : Nat) := {_ : LatinHypercube n d}
 
+def LatinHyperplane {n d : Nat} (Hd : d > 2) (A : LatinHypercube n d) (f : Fin d → Fin n) (x : Fin d) : 
+LatinHypercube n (d-1) := 
+  ⟨ ⟨ A.H0.1, Nat.lt_sub_of_add_lt Hd ⟩,
+    { a : Fin (d-1) → Fin n // ∃ a' : Fin d → Fin n, a' ∈ A.set ∧ ∀ y : Fin (d-1), a y = a' (Fin.succ_above x y) },
+    by
+      intro a
+      simp only [LatinHypercube.set, is_LatinHypercube, LatinHypercube.prop, LatinHypercube.H0, 
+        gt_iff_lt, ne_eq, dite_eq_ite]
+      intro f x
+      specialize a (λ y => f (Fin.succ_above x y)) (Fin.succ_above x x)
+      rcases a with ⟨ a', ha'1, ha'2 ⟩
+      use a'
+      constructor
+      · -- 1.
+        refine ⟨ ha'1.1, ?_ ⟩ ; clear ha'2
+        intro y
+        rw [Fin.succ_above_ne]
+        done
+      · -- 2.
+        intro a'' ha''
+        suffices h : a'' = a' by rw [h]
+        apply ha'2 _ ⟨ ha''.1, ?_ ⟩ ; clear ha'2 a' ha'' A
+        intro y
+        rw [Fin.succ_above_ne]
+        done
+      done
+  ⟩
+  
+
 -- Define Isotopism class
 def BlindIsotopism {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) (A : Set (Fin d → Fin n)) : 
   Set (Fin d → Fin n) := {b : Fin d → Fin n | ∃ a ∈ A, b = (λ x => σₙd x (a x))}
@@ -549,13 +578,6 @@ instance Paratopism.Group {n d : Nat} : Group (Paratopism n d) := by
 
 --------------------------------------------------------------------------
 
-/-
-"The stabilisers of a latin hypercube L under isotopism, Paratopism and isomorphism
-are known respectively as the autotopism group, autoParatopism group and automorphism
-group of L. We use respectively Is(L), Par(L) and Aut(L) to denote these groups. For
-example, Aut(L) = {σ ∈ ∆d+1n | Lσ = L}."
--/
-
 -- Quotienting by the equivalence Relation
 
 def Isotopism.Relation {n d : Nat} : LatinHypercube n d → LatinHypercube n d → Prop := 
@@ -654,6 +676,24 @@ def Paratopism.Relation.setoid {n d : Nat} : Setoid (LatinHypercube n d) :=
 
 def Paratopism.class (n d : Nat) := 
   Quotient (Paratopism.Relation.setoid : Setoid (LatinHypercube n d))
+
+------------------------------------------------------------------------
+
+/-
+"The stabilisers of a latin hypercube L under isotopism, Paratopism and isomorphism
+are known respectively as the autotopism group, autoParatopism group and automorphism
+group of L. We use respectively Is(L), Par(L) and Aut(L) to denote these groups. For
+example, Aut(L) = {σ ∈ ∆d+1n | Lσ = L}."
+-/
+
+def Isotopism.Stabiliser {n d : Nat} (A : LatinHypercube n d) : Set (Isotopism n d) :=
+  { T : Isotopism n d | T.toFun A = A }
+
+def Conjugation.Stabiliser {n d : Nat} (A : LatinHypercube n d) : Set (Conjugation n d) :=
+  { T : Conjugation n d | T.toFun A = A }
+
+def Paratopism.Stabiliser {n d : Nat} (A : LatinHypercube n d) : Set (Paratopism n d) :=
+  { T : Paratopism n d | T.toFun A = A }
 
 ------------------------------------------------------------------------
 
