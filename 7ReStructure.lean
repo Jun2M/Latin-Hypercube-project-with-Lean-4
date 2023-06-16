@@ -1,6 +1,5 @@
 import Mathlib.Tactic.Use
 import Mathlib.Tactic.Basic
-import Mathlib.Tactic.LeftRight
 import Mathlib.Tactic.Linarith
 import Mathlib.Tactic.Contrapose
 import Mathlib.Tactic.NthRewrite
@@ -11,6 +10,11 @@ import Mathlib.Data.Fintype.Basic
 import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Finset.Image
 import Mathlib.Data.Finset.Card
+import Mathlib.Data.Set.Finite
+import Mathlib.Data.Set.Image
+import Mathlib.Data.Finite.Basic
+import Mathlib.Data.Finite.Defs
+import Mathlib.Data.Finite.Set
 
 
 -- Main source : http://users.cecs.anu.edu.au/~bdm/papers/hypercubes.pdf
@@ -30,13 +34,67 @@ def is_LatinHypercube {n d : Nat} (A : Set (Fin d → Fin n)) : Prop :=
   else 
     False
 
-
 structure LatinHypercube (n d : Nat) :=
   (H0 : n > 0 ∧ d > 1)
   (set : Set (Fin d → Fin n))
-  (prop : is_LatinHypercube set)
+  (LHC : is_LatinHypercube set)  
 
--- def 𝓗 (n d : Nat) := {_ : LatinHypercube n d}
+lemma LatinHypercube.ext {n d : Nat} (A B : LatinHypercube n d) : 
+  A.set = B.set → A = B := by
+  intro h
+  cases A ; cases B
+  congr
+  done
+
+theorem LatinHypercube.ext_iff {n d : Nat} (A B : LatinHypercube n d) : 
+  A = B ↔ A.set = B.set :=  ⟨ λ h => h ▸ rfl, LatinHypercube.ext A B ⟩
+
+
+def 𝓗 (n d : Nat) : Set (LatinHypercube n d) := {A : LatinHypercube n d | True }
+
+instance LatinHypercube.Finite (n d : Nat) : Finite (LatinHypercube n d) := by
+  apply @Finite.of_injective_finite_range (Set (Fin d → Fin n)) (LatinHypercube n d) (λ A : LatinHypercube n d => A.set) 
+  exact fun A B h => LatinHypercube.ext A B h
+  done
+  
+
+def is_reduced {n d : Nat} (A : LatinHypercube n d) : Prop := 
+  if H0 : n > 0 ∧ d > 1 then 
+    ∀ x : Fin d, ∀ i : Fin n, ∃ a : Fin d → Fin n, a ∈ A.set ∧
+    a = λ y => if y = x ∨ y = (⟨ 0, by linarith only [H0.2] ⟩ : Fin d) 
+      then i else (⟨0, by linarith only [H0.1]⟩ : Fin n)
+  else 
+    False
+
+structure ReducedLatinHypercube (n d : Nat) extends LatinHypercube n d where
+  (RLHC : is_reduced toLatinHypercube)
+
+def 𝓡 (n d : Nat) : Set (ReducedLatinHypercube n d) := 
+{A : ReducedLatinHypercube n d | True }
+
+/-
+"The usual notions of isotopism, paratopism and isomorphism generalise naturally from
+latin squares to higher dimension. Let Sn be the symmetric group on [n] and let Scn denote
+the direct product of c copies of Sn. Then the natural action of Sd+1n on [n]d+1 induces
+an action on Hdn (where, as discussed above, we associate each H ∈ Hdn with a subset
+TH ⊆ [n]d+1). This action is called isotopism (or isotopy) and its orbits are called isotopy
+classes. Define ∆d+1n to be the diagonal subgroup of Sd+1n , that is ∆d+1n = {(g,g,...,g) ∈
+Sd+1n }. An important special case of isotopism is the action of ∆d+1n on Hdn. This action
+is called isomorphism and its orbits are called isomorphism classes. If the hypercube is
+regarded as the table of values of a d-ary quasigroup on [n], then isomorphisms of the
+hypercube correspond to standard isomorphisms of the quasigroup.
+A further group action on a hypercube is provided by permutation of the elements of
+tuples. In this action, a permutation τ ∈ Sd+1 maps the tuple 〈v1,v2,...,vd+1〉 onto the
+tuple 〈v1,v2,...,vd+1〉τ = 〈w1,w2,...,wd+1〉 where wiτ = vi for 1 ≤ i ≤ d+1. Here, and
+3
+elsewhere, we use the superscript notation for the image of an object under a function;
+thus iτ means τ(i), and Lτ is the image of L obtained by applying τ to each of its tuples.
+Such images are the conjugates (also called parastrophes) of L.
+An arbitrary combination of a conjugacy and an isotopism is called a paratopism
+(or paratopy). The set of all paratopisms corresponds to the wreath product Sn o Sd+1 in
+its natural action on [n]d+1. The orbits of its action on the set of all hypercubes are called
+paratopy classes, main classes or species.
+-/
 
 -- Define Isotopism class
 def BlindIsotopism {n d : Nat} (σₙd : Fin d → Fin n ≃ Fin n) (A : Set (Fin d → Fin n)) : 
@@ -135,7 +193,7 @@ lemma BlindIsotopism.closed_under_inv1 {n d : Nat} (σₙd : Fin d → Fin n ≃
 
 class Isotopism (n d : Nat) extends Equiv (LatinHypercube n d) (LatinHypercube n d) where
   (iso : ∃ σₙd : Fin d → Fin n ≃ Fin n, toEquiv.toFun = λ A : (LatinHypercube n d) => 
-    ⟨ A.H0, BlindIsotopism σₙd A.set, BlindIsotopism.main_imp σₙd A.set A.prop ⟩)
+    ⟨ A.H0, BlindIsotopism σₙd A.set, BlindIsotopism.main_imp σₙd A.set A.LHC ⟩)
 
 @[ext] 
 theorem Isotopism.ext {n d : Nat} (T1 T2 : Isotopism n d) : 
@@ -314,7 +372,7 @@ lemma BlindConjugation.closed_under_inv1 {n d : Nat} (σ_d : Fin d ≃ Fin d) :
 
 class Conjugation (n d : Nat) extends Equiv (LatinHypercube n d) (LatinHypercube n d) where
   (conj : ∃ σ_d : Fin d ≃ Fin d, toEquiv.toFun = λ A : (LatinHypercube n d) => 
-    ⟨ A.H0, BlindConjugation σ_d A.set, BlindConjugation.main_imp σ_d A.set A.prop ⟩)
+    ⟨ A.H0, BlindConjugation σ_d A.set, BlindConjugation.main_imp σ_d A.set A.LHC ⟩)
 
 @[ext]
 theorem Conjugation.ext {n d : Nat} (T1 T2 : Conjugation n d) : 
@@ -464,7 +522,7 @@ lemma BlindParatopism.closed_under_inv1 {n d : Nat} (σ_d : Fin d ≃ Fin d) (σ
 
 class Paratopism (n d : Nat) extends Equiv (LatinHypercube n d) (LatinHypercube n d) where
   (para : ∃ σ_d : Fin d ≃ Fin d, ∃ σₙd : Fin d → Fin n ≃ Fin n, toEquiv.toFun = λ A => 
-  ⟨ A.H0, BlindParatopism σ_d σₙd A.set, BlindParatopism.main_imp σ_d σₙd A.set A.prop ⟩)
+  ⟨ A.H0, BlindParatopism σ_d σₙd A.set, BlindParatopism.main_imp σ_d σₙd A.set A.LHC ⟩)
 
 @[ext]
 theorem Paratopism.ext {n d : Nat} (T1 T2 : Paratopism n d) : 
@@ -657,3 +715,5 @@ def Paratopism.class (n d : Nat) :=
 
 ------------------------------------------------------------------------
 
+theorem 𝓡3d_Card1 : ∀ d : Nat, Fintype.card (𝓡 3 d) = 1 := by
+  sorry
